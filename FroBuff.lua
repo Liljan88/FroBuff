@@ -18,6 +18,17 @@ function FroBuff:OnEnable()
     self:RegisterEvent("PLAYER_ENTERING_WORLD", "UpdateBuffStatus")
 end
 
+-- Dessa två var det som saknades!
+function FroBuff:UNIT_AURA(event, unit)
+    if unit == "player" then
+        self:UpdateBuffStatus()
+    end
+end
+
+function FroBuff:PLAYER_REGEN_ENABLED()
+    self:UpdateBuffStatus()
+end
+
 function FroBuff:CreateBuffButton()
     buffButton = CreateFrame("Button", "FroBuffButton", UIParent, "SecureActionButtonTemplate")
     buffButton:SetSize(36, 36)
@@ -35,7 +46,7 @@ function FroBuff:CreateBuffButton()
     buffButton.border:SetPoint("CENTER", 0, 0)
     buffButton.border:SetTexture("Interface\\Buttons\\UI-Quickslot2")
 
-    -- NYTT: Snygg text till vänster om ikonen (T.ex. "Arcane Intellect ->")
+    -- Snygg text till vänster om ikonen (T.ex. "Arcane Intellect ->")
     buffButton.text = buffButton:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     buffButton.text:SetPoint("RIGHT", buffButton, "LEFT", -10, 0)
     buffButton.text:SetText("")
@@ -70,7 +81,7 @@ function FroBuff:UpdateBuffStatus()
             buffButton.icon:SetDesaturated(false)
         end
 
-        -- Uppdatera texten istället för röd ruta
+        -- Uppdatera texten
         buffButton.text:SetText(missingBuff .. " ->")
         
         buffButton:SetAttribute("macrotext1", "/cast " .. missingBuff)

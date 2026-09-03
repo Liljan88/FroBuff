@@ -2,53 +2,49 @@ local FroBuff = LibStub("AceAddon-3.0"):GetAddon("FroBuff")
 
 FroBuff.Data = {}
 
--- Vi lyfter ut bas-buffarna för andra klasser så koden hålls ren
 local function GetBaseBuffs(playerClass)
     if playerClass == "PRIEST" then
         return {
-            { cast = "Power Word: Fortitude", auras = {"Power Word: Fortitude", "Prayer of Fortitude"} },
-            { cast = "Inner Fire", auras = {"Inner Fire"} },
-            { cast = "Shadow Protection", auras = {"Shadow Protection", "Prayer of Shadow Protection"} }
+            { cast = "Power Word: Fortitude", auras = {"Power Word: Fortitude", "Prayer of Fortitude"}, target = "group" },
+            { cast = "Inner Fire", auras = {"Inner Fire"}, target = "player" },
+            { cast = "Shadow Protection", auras = {"Shadow Protection", "Prayer of Shadow Protection"}, target = "group" }
         }
     elseif playerClass == "DRUID" then
         return {
-            { cast = "Mark of the Wild", auras = {"Mark of the Wild", "Gift of the Wild"} },
-            { cast = "Thorns", auras = {"Thorns"} },
-            { cast = "Omen of Clarity", auras = {"Omen of Clarity"} }
+            { cast = "Mark of the Wild", auras = {"Mark of the Wild", "Gift of the Wild"}, target = "group" },
+            { cast = "Thorns", auras = {"Thorns"}, target = "group" },
+            { cast = "Omen of Clarity", auras = {"Omen of Clarity"}, target = "player" }
         }
     elseif playerClass == "PALADIN" then
         return {
-            { cast = "Blessing of Might", auras = {"Blessing of Might", "Greater Blessing of Might"} }
+            { cast = "Blessing of Might", auras = {"Blessing of Might", "Greater Blessing of Might"}, target = "group" }
         }
     elseif playerClass == "WARLOCK" then
         return {
-            { cast = "Demon Armor", auras = {"Demon Armor", "Fel Armor"} }
+            { cast = "Demon Armor", auras = {"Demon Armor", "Fel Armor"}, target = "player" }
         }
     elseif playerClass == "SHAMAN" then
         return {
-            { cast = "Lightning Shield", auras = {"Lightning Shield", "Water Shield", "Earth Shield"} }
+            { cast = "Lightning Shield", auras = {"Lightning Shield", "Water Shield", "Earth Shield"}, target = "player" }
         }
     end
-    return {} -- Returnera tom lista om ingen matchning
+    return {}
 end
 
--- Denna funktion hämtar nu dynamiskt vad som ska buffas baserat på dina AceDB-inställningar!
 function FroBuff:GetMyClassBuffs()
     local _, playerClass = UnitClass("player")
     local buffs = GetBaseBuffs(playerClass)
     
     if playerClass == "MAGE" then
-        -- Arcane Intellect ska alltid övervakas
-        table.insert(buffs, { cast = "Arcane Intellect", auras = {"Arcane Intellect", "Arcane Brilliance"} })
+        -- Arcane Intellect går till hela gruppen
+        table.insert(buffs, { cast = "Arcane Intellect", auras = {"Arcane Intellect", "Arcane Brilliance"}, target = "group" })
         
-        -- Läs av vilken Armor spelaren valt i Options-menyn (Standard: Ice Armor)
         local preferredArmor = self.db.profile.solo.mageArmor or "Ice Armor"
-        
+        -- Armors går BARA till dig själv ("player")
         if preferredArmor == "Mage Armor" then
-            table.insert(buffs, { cast = "Mage Armor", auras = {"Mage Armor"} })
+            table.insert(buffs, { cast = "Mage Armor", auras = {"Mage Armor"}, target = "player" })
         else
-            -- Både Ice och Frost Armor hanteras här
-            table.insert(buffs, { cast = "Ice Armor", auras = {"Ice Armor", "Frost Armor"} })
+            table.insert(buffs, { cast = "Ice Armor", auras = {"Ice Armor", "Frost Armor"}, target = "player" })
         end
     end
     
@@ -67,7 +63,6 @@ function FroBuff:IsBuffCategoryMissing(auras, unit)
             end
         end
     end
-    
     return true
 end
 
@@ -76,8 +71,13 @@ function FroBuff:GetFirstMissingBuff(buffCategories, unit)
     if not buffCategories then return nil end
     
     for _, category in ipairs(buffCategories) do
-        if self:IsBuffCategoryMissing(category.auras, unit) then
-            return category.cast
+        -- MAGIN HÄNDER HÄR: Om buffen är 'player'-only, strunta i den om vi kollar en party-medlem
+        if category.target == "player" and unit ~= "player" then
+            -- Gör ingenting, hoppa till nästa buff
+        else
+            if self:IsBuffCategoryMissing(category.auras, unit) then
+                return category.cast
+            end
         end
     end
     

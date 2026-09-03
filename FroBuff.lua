@@ -18,18 +18,20 @@ function FroBuff:OnEnable()
     self:RegisterEvent("PLAYER_ENTERING_WORLD", "UpdateBuffStatus")
 end
 
--- Ersätt hela CreateBuffButton-funktionen:
 function FroBuff:CreateBuffButton()
     -- Create the secure button frame
     buffButton = CreateFrame("Button", "FroBuffButton", UIParent, "SecureActionButtonTemplate")
-    buffButton:SetSize(36, 36) -- Standard action button size
+    buffButton:SetSize(36, 36)
     buffButton:SetPoint("CENTER", UIParent, "CENTER", 0, -100)
-    buffButton:SetAttribute("type1", "spell") 
+    
+    -- Använd macro istället för direkt spell-attribut för maximal kompatibilitet i Classic
+    buffButton:SetAttribute("type1", "macro")
+    buffButton:RegisterForClicks("LeftButtonUp", "LeftButtonDown")
 
     -- Spell icon background
     buffButton.icon = buffButton:CreateTexture(nil, "BACKGROUND")
     buffButton.icon:SetAllPoints()
-    buffButton.icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark") -- Fallback icon
+    buffButton.icon:SetTexture("Interface\\Icons\\INV_Misc_QuestionMark")
 
     -- Blizzard default button border
     buffButton.border = buffButton:CreateTexture(nil, "BORDER")
@@ -37,7 +39,7 @@ function FroBuff:CreateBuffButton()
     buffButton.border:SetPoint("CENTER", 0, 0)
     buffButton.border:SetTexture("Interface\\Buttons\\UI-Quickslot2")
 
-    -- The status indicator (moved to top-right corner)
+    -- The status indicator
     buffButton.indicator = buffButton:CreateTexture(nil, "OVERLAY")
     buffButton.indicator:SetSize(10, 10)
     buffButton.indicator:SetColorTexture(0.07, 0.07, 0.07, 1)
@@ -47,7 +49,7 @@ function FroBuff:CreateBuffButton()
     -- Tooltip handling
     buffButton:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        local spell = self:GetAttribute("spell")
+        local spell = self:GetAttribute("currentSpell")
         if spell then
             GameTooltip:SetText("Missing Buff:\n|cFFFFFFFF" .. spell .. "|r")
         else
@@ -62,18 +64,15 @@ function FroBuff:CreateBuffButton()
 end
 
 function FroBuff:UNIT_AURA(event, unit)
-    -- Only update if the aura change happened to the player
     if unit == "player" then
         self:UpdateBuffStatus()
     end
 end
 
 function FroBuff:PLAYER_REGEN_ENABLED()
-    -- Update immediately when leaving combat (in case we missed a buff dropping during combat)
     self:UpdateBuffStatus()
 end
 
--- Ersätt hela UpdateBuffStatus-funktionen:
 function FroBuff:UpdateBuffStatus()
     if InCombatLockdown() then return end
     
@@ -81,20 +80,23 @@ function FroBuff:UpdateBuffStatus()
     local missingBuff = self:GetFirstMissingBuff(myBuffs, "player")
     
     if missingBuff then
-        -- Get spell info from the WoW API
         local spellName, _, spellIcon = GetSpellInfo(missingBuff)
         
         if spellIcon then
             buffButton.icon:SetTexture(spellIcon)
-            buffButton.icon:SetDesaturated(false) -- Full color when missing
+            buffButton.icon:SetDesaturated(false)
         end
 
-        buffButton.indicator:SetColorTexture(1, 0, 0, 1) -- Red indicator
-        buffButton:SetAttribute("spell", missingBuff)
+        buffButton.indicator:SetColorTexture(1, 0, 0, 1)
+        
+        -- Sätt makrot som körs vid klick och spara namnet för tooltip
+        buffButton:SetAttribute("macrotext1", "/cast " .. missingBuff)
+        buffButton:SetAttribute("currentSpell", missingBuff)
     else
-        -- Desaturate (grey out) the icon when all buffs are active
         buffButton.icon:SetDesaturated(true)
-        buffButton.indicator:SetColorTexture(0.07, 0.07, 0.07, 1) -- Dark indicator
-        buffButton:SetAttribute("spell", nil)
+        buffButton.indicator:SetColorTexture(0.07, 0.07, 0.07, 1)
+        
+        buffButton:SetAttribute("macrotext1", nil)
+        buffButton:SetAttribute("currentSpell", nil)
     end
 end

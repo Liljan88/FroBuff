@@ -1,24 +1,20 @@
 local FroBuff = LibStub("AceAddon-3.0"):NewAddon("FroBuff", "AceConsole-3.0", "AceEvent-3.0")
 
-local buffButton -- Vår klickbara frame
+local buffButton
 
 function FroBuff:OnInitialize()
-    -- Initialize database and options from Options.lua
     if self.SetupOptions then
         self:SetupOptions()
     end
-    
     self:CreateBuffButton()
 end
 
 function FroBuff:OnEnable()
-    -- Register events to track buff changes
     self:RegisterEvent("UNIT_AURA")
     self:RegisterEvent("PLAYER_REGEN_ENABLED")
     self:RegisterEvent("PLAYER_ENTERING_WORLD", "UpdateBuffStatus")
 end
 
--- Dessa två var det som saknades!
 function FroBuff:UNIT_AURA(event, unit)
     if unit == "player" then
         self:UpdateBuffStatus()
@@ -32,10 +28,37 @@ end
 function FroBuff:CreateBuffButton()
     buffButton = CreateFrame("Button", "FroBuffButton", UIParent, "SecureActionButtonTemplate")
     buffButton:SetSize(36, 36)
-    buffButton:SetPoint("CENTER", UIParent, "CENTER", 0, -100)
+    
+    -- Ladda sparad position eller sätt i mitten
+    local pos = self.db.profile.framePosition
+    if pos then
+        buffButton:SetPoint(pos.point, UIParent, pos.relativePoint, pos.xOfs, pos.yOfs)
+    else
+        buffButton:SetPoint("CENTER", UIParent, "CENTER", 0, -100)
+    end
     
     buffButton:SetAttribute("type1", "macro")
     buffButton:RegisterForClicks("LeftButtonUp", "LeftButtonDown")
+
+    -- Dra-och-släpp-logik
+    buffButton:SetMovable(true)
+    buffButton:RegisterForDrag("LeftButton")
+    buffButton:SetScript("OnDragStart", function(self)
+        if not FroBuff.db.profile.locked then
+            self:StartMoving()
+        end
+    end)
+    buffButton:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        -- Spara nya positionen i AceDB
+        local point, relativeTo, relativePoint, xOfs, yOfs = self:GetPoint()
+        FroBuff.db.profile.framePosition = {
+            point = point,
+            relativePoint = relativePoint,
+            xOfs = xOfs,
+            yOfs = yOfs
+        }
+    end)
 
     buffButton.icon = buffButton:CreateTexture(nil, "BACKGROUND")
     buffButton.icon:SetAllPoints()
@@ -46,7 +69,6 @@ function FroBuff:CreateBuffButton()
     buffButton.border:SetPoint("CENTER", 0, 0)
     buffButton.border:SetTexture("Interface\\Buttons\\UI-Quickslot2")
 
-    -- Snygg text till vänster om ikonen (T.ex. "Arcane Intellect ->")
     buffButton.text = buffButton:CreateFontString(nil, "OVERLAY", "GameFontNormal")
     buffButton.text:SetPoint("RIGHT", buffButton, "LEFT", -10, 0)
     buffButton.text:SetText("")
@@ -81,15 +103,12 @@ function FroBuff:UpdateBuffStatus()
             buffButton.icon:SetDesaturated(false)
         end
 
-        -- Uppdatera texten
         buffButton.text:SetText(missingBuff .. " ->")
-        
         buffButton:SetAttribute("macrotext1", "/cast " .. missingBuff)
         buffButton:SetAttribute("currentSpell", missingBuff)
     else
         buffButton.icon:SetDesaturated(true)
-        buffButton.text:SetText("") -- Göm texten när allt är klart
-        
+        buffButton.text:SetText("") 
         buffButton:SetAttribute("macrotext1", nil)
         buffButton:SetAttribute("currentSpell", nil)
     end

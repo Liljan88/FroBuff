@@ -13,6 +13,7 @@ local options = {
                 toggleMinimap = {
                     type = "toggle",
                     name = "Visa Minimap Ikon",
+                    order = 1,
                     desc = "Slår av och på FroBuffs ikon vid minimappen.",
                     get = function(info) return not FroBuff.db.profile.minimap.hide end,
                     set = function(info, value)
@@ -22,6 +23,16 @@ local options = {
                         else
                             LibStub("LibDBIcon-1.0"):Show("FroBuff")
                         end
+                    end,
+                },
+                lockFrame = {
+                    type = "toggle",
+                    name = "Lås FroBuff",
+                    order = 2,
+                    desc = "Kryssa ur för att kunna flytta buff-knappen.",
+                    get = function(info) return FroBuff.db.profile.locked end,
+                    set = function(info, value)
+                        FroBuff.db.profile.locked = value
                     end,
                 },
             },
@@ -38,16 +49,15 @@ local options = {
 }
 
 function FroBuff:SetupOptions()
-    -- Registrera DB först så FroBuff.db finns tillgänglig
+    -- Registrera DB och sätt standardvärden (låst fönster)
     FroBuff.db = LibStub("AceDB-3.0"):New("FroBuffDB", {
         profile = {
-            minimap = {
-                hide = false,
-            },
+            minimap = { hide = false },
+            locked = true,
+            framePosition = nil, -- Här sparas dina koordinater
         },
     })
 
-    -- LDB för Minimap Ikon med angiven ikon
     local FroBuffLDB = LibStub("LibDataBroker-1.1"):NewDataObject("FroBuff", {
         type = "launcher",
         text = "FroBuff",
@@ -63,14 +73,10 @@ function FroBuff:SetupOptions()
         end,
     })
     
-    -- Registrera Minimap
     LibStub("LibDBIcon-1.0"):Register("FroBuff", FroBuffLDB, FroBuff.db.profile.minimap)
-
-    -- Registrera Config
     LibStub("AceConfig-3.0"):RegisterOptionsTable("FroBuff", options)
     LibStub("AceConfigDialog-3.0"):AddToBlizOptions("FroBuff", "FroBuff")
     
-    -- Slash command
     self:RegisterChatCommand("frobuff", "OpenOptions")
     self:RegisterChatCommand("fb", "OpenOptions")
 end

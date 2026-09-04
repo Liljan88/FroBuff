@@ -15,9 +15,9 @@ local function GetBaseBuffs(playerClass)
             { cast = "Thorns", auras = {"Thorns"}, target = "group" },
             { cast = "Omen of Clarity", auras = {"Omen of Clarity"}, target = "player" }
         }
-    elseif playerClass == "PALADIN" then
+    elseif playerClass == "HUNTER" then
         return {
-            { cast = "Blessing of Might", auras = {"Blessing of Might", "Greater Blessing of Might"}, target = "group" }
+            { cast = "Trueshot Aura", auras = {"Trueshot Aura"}, target = "player" }
         }
     elseif playerClass == "WARLOCK" then
         return {
@@ -36,11 +36,9 @@ function FroBuff:GetMyClassBuffs()
     local buffs = GetBaseBuffs(playerClass)
     
     if playerClass == "MAGE" then
-        -- Arcane Intellect går till hela gruppen
         table.insert(buffs, { cast = "Arcane Intellect", auras = {"Arcane Intellect", "Arcane Brilliance"}, target = "group" })
         
         local preferredArmor = self.db.profile.solo.mageArmor or "Ice Armor"
-        -- Armors går BARA till dig själv ("player")
         if preferredArmor == "Mage Armor" then
             table.insert(buffs, { cast = "Mage Armor", auras = {"Mage Armor"}, target = "player" })
         else
@@ -53,17 +51,28 @@ end
 
 function FroBuff:IsBuffCategoryMissing(auras, unit)
     unit = unit or "player"
+    local threshold = self.db.profile.rebuffThreshold or 300 -- Hämta från AceDB (standard 300s)
+    
     for i = 1, 40 do
-        local name = UnitAura(unit, i, "HELPFUL")
+        -- UnitAura returnerar bla: name, icon, count, dispelType, duration, expirationTime
+        local name, _, _, _, _, expirationTime = UnitAura(unit, i, "HELPFUL")
         if not name then break end 
         
         for _, auraName in ipairs(auras) do
             if name == auraName then
-                return false
+                -- Buffen hittades! Ska den snart gå ut?
+                if expirationTime and expirationTime > 0 then
+                    local timeLeft = expirationTime - GetTime()
+                    if timeLeft <= threshold then
+                        return true -- Tiden är under tröskelvärdet, behandla som "saknad"
+                    end
+                end
+                
+                return false -- Buffen finns och har tillräckligt med tid kvar (eller är permanent)
             end
         end
     end
-    return true
+    return true -- Ingen av de godkända buffarna hittades
 end
 
 function FroBuff:GetFirstMissingBuff(buffCategories, unit)
@@ -71,9 +80,8 @@ function FroBuff:GetFirstMissingBuff(buffCategories, unit)
     if not buffCategories then return nil end
     
     for _, category in ipairs(buffCategories) do
-        -- MAGIN HÄNDER HÄR: Om buffen är 'player'-only, strunta i den om vi kollar en party-medlem
         if category.target == "player" and unit ~= "player" then
-            -- Gör ingenting, hoppa till nästa buff
+            -- Hoppa över solo-buffs om vi skannar en party-medlem
         else
             if self:IsBuffCategoryMissing(category.auras, unit) then
                 return category.cast
